@@ -8,13 +8,14 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "torch (>=2.8.0,<3.0.0)",
+    "torch (==2.9.0)",
     "ipykernel (>=7.0.0,<8.0.0)",
     "numpy (==2.2)",
     "pandas (>=2.3.3,<3.0.0)",
     "clearml (>=2.0.2,<3.0.0)",
     "opencv-python (>=4.12.0.88,<5.0.0.0)",
-    "matplotlib (>=3.10.7,<4.0.0)"
+    "matplotlib (>=3.10.7,<4.0.0)",
+    "torchvision (>=0.24.0,<0.25.0)"
 ]
 
 
