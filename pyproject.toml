@@ -15,7 +15,8 @@ dependencies = [
     "clearml (>=2.0.2,<3.0.0)",
     "opencv-python (>=4.12.0.88,<5.0.0.0)",
     "matplotlib (>=3.10.7,<4.0.0)",
-    "torchvision (>=0.24.0,<0.25.0)"
+    "torchvision (>=0.24.0,<0.25.0)",
+    "tqdm (>=4.67.1,<5.0.0)"
 ]
 
 
