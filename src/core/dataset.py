@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 
 
 class CityscapesDataset(Dataset):
-    def __init__(self, images: dict, keys=None, size=(256, 512)):
+    def __init__(self, images: dict, keys=None, size=None):
         self.images = images
         if not keys:
             self.keys = list(self.images.keys())

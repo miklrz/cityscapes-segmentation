@@ -6,6 +6,7 @@
 - Оценка качества (mIoU и loss) на тренировочном и тестовом наборах
 - Сохранение лучших и финальных весов модели
 - Логирование метрик в ClearML
+- Автоматическое снижение learning rate по расписанию
 
 Все методы совместимы с исходным интерфейсом.
 """
@@ -39,7 +40,7 @@ class Trainer:
 
     def train(self, net, optimizer, epochs, criterion):
         """
-        Основной цикл обучения модели.
+        Основной цикл обучения модели с планировщиком learning rate.
 
         Аргументы:
             net (torch.nn.Module): Обучаемая модель.
@@ -47,6 +48,9 @@ class Trainer:
             epochs (int): Число эпох обучения.
             criterion (torch.nn.Module): Функция потерь.
         """
+        # Инициализация планировщика: косинусное затухание до конца обучения
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
+
         for epoch in range(epochs):
             net.train()
             epoch_loss = 0.0
@@ -68,9 +72,18 @@ class Trainer:
 
                 epoch_loss += loss.item()
 
+            # Обновление learning rate после каждой эпохи
+            scheduler.step()
+
+            # Получение текущего значения learning rate для логирования
+            current_lr = optimizer.param_groups[0]["lr"]
+            logger.report_scalar(
+                title="Learning Rate", series="LR", value=current_lr, iteration=epoch
+            )
+
             # Усреднение потерь по эпохе
             epoch_loss /= len(self.trainDataloader)
-            print(f"[Epoch {epoch}] Train loss: {epoch_loss:.6f}")
+            print(f"[Epoch {epoch}] Train loss: {epoch_loss:.6f}, LR: {current_lr:.2e}")
             logger.report_scalar(
                 title="Loss", series="Train", value=epoch_loss, iteration=epoch
             )
@@ -85,7 +98,6 @@ class Trainer:
             )
 
             # Валидация на тестовом наборе с заданной периодичностью
-            # Примечание: условие `if True` заменено на логически корректное
             should_eval = ((epoch + 1) % self.evalInterval == 0) or (
                 epoch == epochs - 1
             )

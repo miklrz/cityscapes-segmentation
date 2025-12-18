@@ -25,8 +25,9 @@ class Config:
     batch_size: int = 4
     learning_rate: float = 3e-5
     epochs: int = 50
-    IMAGE_SIZE = (512, 1024)
+    IMAGE_SIZE = (256, 512)
     evalInterval = 1
+    model_name = "unet"  # segnet/unet
     clearml_project_name = "Cityscapes_segmentation"
     clearml_task_name = "segnet_baseline_1"
 

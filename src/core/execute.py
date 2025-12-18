@@ -4,7 +4,7 @@ from src.core.config import config, device, NUM_CLASSES
 from src.core.processor import Processor
 from src.core.dataset import get_index_splits, CityscapesDataset
 from src.core.trainer import Trainer
-from src.core.net import SegNet
+from src.core.net import SegNet, UNet
 from src.core.loss import DiceLoss
 
 
@@ -18,8 +18,8 @@ def execute_training():
     images = processor.get_images()
     train_images_idx, test_images_idx = get_index_splits(images)
 
-    trainDataset = CityscapesDataset(images, train_images_idx)
-    testDataset = CityscapesDataset(images, test_images_idx)
+    trainDataset = CityscapesDataset(images, train_images_idx, size=config.IMAGE_SIZE)
+    testDataset = CityscapesDataset(images, test_images_idx, size=config.IMAGE_SIZE)
 
     trainDataloader = DataLoader(dataset=trainDataset, batch_size=config.batch_size)
     testDataloader = DataLoader(dataset=testDataset, batch_size=1)
@@ -31,7 +31,12 @@ def execute_training():
         savePath=config.SAVE_PATH,
     )
 
-    net = SegNet(in_channels=3, num_classes=NUM_CLASSES).to(device)
+    if config.model_name == "unet":
+        net = UNet(in_channels=3, num_classes=NUM_CLASSES).to(device)
+    elif config.model_name == "segnet":
+        net = SegNet(in_channels=3, num_classes=NUM_CLASSES).to(device)
+    else:
+        raise ValueError("Model is not valid")
     optimizer = Adam(net.parameters(), lr=config.learning_rate)
     criterion = DiceLoss(NUM_CLASSES)
 

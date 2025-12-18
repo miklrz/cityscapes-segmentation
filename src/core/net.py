@@ -217,3 +217,151 @@ class SegNet(nn.Module):
 
         # ВАЖНО: Softmax НЕ применяется! Лосс работает с логитами.
         return x
+
+
+"""
+Реализация архитектуры U-Net для семантической сегментации.
+
+U-Net — популярная encoder-decoder сеть с skip-connection'ами.
+Преимущества перед SegNet:
+- Лучшая передача пространственной информации через skip-connections
+- Более стабильное обучение
+- Часто даёт выше mIoU на тех же данных
+
+Данная реализация:
+- Сохраняет совместимость с интерфейсом SegNet
+- Не использует Softmax на выходе (работает с логитами)
+- Гарантирует совпадение размера выхода с входом при корректном размере входа (кратном 16)
+
+Параметры аналогичны SegNet для лёгкой замены в main.py.
+"""
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+class UNetConvBlock(nn.Module):
+    """Два свёрточных слоя с BatchNorm и ReLU."""
+
+    def __init__(self, in_channels, out_channels):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_channels)
+        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(out_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        x = self.relu(self.bn1(self.conv1(x)))
+        x = self.relu(self.bn2(x))
+        return x
+
+
+class UNet(nn.Module):
+    """
+    U-Net архитектура для семантической сегментации.
+
+    Параметры:
+        in_channels (int): Число входных каналов (обычно 3 для RGB).
+        num_classes (int): Число классов сегментации.
+        features (list[int]): Число каналов на каждом уровне. По умолчанию — оригинальная схема U-Net.
+
+    Возвращает:
+        torch.Tensor: Логиты формы [B, num_classes, H, W].
+    """
+
+    def __init__(self, in_channels=3, num_classes=32, features=None):
+        super().__init__()
+        if features is None:
+            features = [64, 128, 256, 512, 1024]  # как в оригинальной статье
+
+        # Encoder (с downsampling'ом)
+        self.enc1 = UNetConvBlock(in_channels, features[0])
+        self.pool1 = nn.MaxPool2d(2)
+        self.enc2 = UNetConvBlock(features[0], features[1])
+        self.pool2 = nn.MaxPool2d(2)
+        self.enc3 = UNetConvBlock(features[1], features[2])
+        self.pool3 = nn.MaxPool2d(2)
+        self.enc4 = UNetConvBlock(features[2], features[3])
+        self.pool4 = nn.MaxPool2d(2)
+
+        # Bottleneck
+        self.bottleneck = UNetConvBlock(features[3], features[4])
+
+        # Decoder (с upsampling'ом и skip-connections)
+        self.upconv4 = nn.ConvTranspose2d(
+            features[4], features[3], kernel_size=2, stride=2
+        )
+        self.dec4 = UNetConvBlock(
+            features[4], features[3]
+        )  # features[3] + features[3] от skip
+
+        self.upconv3 = nn.ConvTranspose2d(
+            features[3], features[2], kernel_size=2, stride=2
+        )
+        self.dec3 = UNetConvBlock(features[3], features[2])
+
+        self.upconv2 = nn.ConvTranspose2d(
+            features[2], features[1], kernel_size=2, stride=2
+        )
+        self.dec2 = UNetConvBlock(features[2], features[1])
+
+        self.upconv1 = nn.ConvTranspose2d(
+            features[1], features[0], kernel_size=2, stride=2
+        )
+        self.dec1 = UNetConvBlock(features[1], features[0])
+
+        # Финальный классификатор
+        self.final_conv = nn.Conv2d(features[0], num_classes, kernel_size=1)
+
+        self._init_weights()
+
+    def _init_weights(self):
+        """Инициализация весов по методу Kaiming."""
+        for m in self.modules():
+            if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
+                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+
+    def forward(self, x):
+        # Encoder
+        enc1 = self.enc1(x)
+        enc2 = self.enc2(self.pool1(enc1))
+        enc3 = self.enc3(self.pool2(enc2))
+        enc4 = self.enc4(self.pool3(enc3))
+
+        # Bottleneck
+        bottleneck = self.bottleneck(self.pool4(enc4))
+
+        # Decoder с skip-connections
+        dec4 = self.upconv4(bottleneck)
+        dec4 = torch.cat((dec4, enc4), dim=1)
+        dec4 = self.dec4(dec4)
+
+        dec3 = self.upconv3(dec4)
+        dec3 = torch.cat((dec3, enc3), dim=1)
+        dec3 = self.dec3(dec3)
+
+        dec2 = self.upconv2(dec3)
+        dec2 = torch.cat((dec2, enc2), dim=1)
+        dec2 = self.dec2(dec2)
+
+        dec1 = self.upconv1(dec2)
+        dec1 = torch.cat((dec1, enc1), dim=1)
+        dec1 = self.dec1(dec1)
+
+        # Финальный выход
+        out = self.final_conv(dec1)
+
+        # Восстанавливаем исходный размер (на случай неточностей)
+        if out.shape[2:] != x.shape[2:]:
+            out = F.interpolate(
+                out, size=x.shape[2:], mode="bilinear", align_corners=False
+            )
+
+        return out
