@@ -31,7 +31,7 @@ def execute_training():
         savePath=config.SAVE_PATH,
     )
 
-    net = SegNet(in_channels=3, out_channels=NUM_CLASSES).to(device)
+    net = SegNet(in_channels=3, num_classes=NUM_CLASSES).to(device)
     optimizer = Adam(net.parameters(), lr=config.learning_rate)
     criterion = DiceLoss(NUM_CLASSES)
 

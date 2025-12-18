@@ -20,7 +20,9 @@ dependencies = [
     "jupyter (>=1.1.1,<2.0.0)",
     "ipywidgets (>=8.1.7,<9.0.0)",
     "torchmetrics (>=1.8.2,<2.0.0)",
-    "scikit-learn (>=1.7.2,<2.0.0)"
+    "scikit-learn (>=1.7.2,<2.0.0)",
+    "fastapi (>=0.125.0,<0.126.0)",
+    "uvicorn (>=0.38.0,<0.39.0)"
 ]
 
 

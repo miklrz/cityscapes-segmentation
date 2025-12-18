@@ -23,9 +23,9 @@ class Config:
         "/home/hxastur/vscode_projects/cityscapes-segmentation/saved_models"
     )
     batch_size: int = 4
-    learning_rate: float = 1e-3
-    epochs: int = 10
-    IMAGE_SIZE = (128, 256)
+    learning_rate: float = 3e-5
+    epochs: int = 50
+    IMAGE_SIZE = (512, 1024)
     evalInterval = 1
     clearml_project_name = "Cityscapes_segmentation"
     clearml_task_name = "segnet_baseline_1"
